@@ -31,11 +31,13 @@ set(SOURCES "audio/audio_codec.cc"
             "audio/codecs/es8388_audio_codec.cc"
             "audio/codecs/es8389_audio_codec.cc"
             "audio/codecs/dummy_audio_codec.cc"
-            "audio/processors/audio_debugger.cc"
+            "audio/audio_debugger.cc"
+            "notify/notify_player.cc"
             "led/single_led.cc"
             "led/circular_strip.cc"
             "led/gpio_led.cc"
             "display/display.cc"
+            "display/text_glyph.cc"
             "display/lcd_display.cc"
             "display/oled_display.cc"
             "display/lvgl_display/lvgl_display.cc"
@@ -43,12 +45,14 @@ set(SOURCES "audio/audio_codec.cc"
             "display/lvgl_display/emoji_collection.cc"
             "display/lvgl_display/lvgl_theme.cc"
             "display/lvgl_display/lvgl_font.cc"
+            "display/lvgl_display/dynamic_glyph_cache.cc"
             "display/lvgl_display/lvgl_image.cc"
             "display/lvgl_display/gif/lvgl_gif.cc"
             "display/lvgl_display/gif/gifdec.c"
             "display/lvgl_display/jpg/image_to_jpeg.cpp"
             "display/lvgl_display/jpg/jpeg_to_image.c"
             "protocols/protocol.cc"
+            "protocols/text_glyph_payload.cc"
             "protocols/mqtt_protocol.cc"
             "protocols/websocket_protocol.cc"
             "mcp_server.cc"
@@ -76,7 +80,6 @@ list(APPEND SOURCES
     "${XIAOZHI_MAIN_DIR}/boards/common/nt26_board.cc"
     "${XIAOZHI_MAIN_DIR}/boards/common/dual_network_board.cc"
     "${XIAOZHI_MAIN_DIR}/boards/common/adc_battery_monitor.cc"
-    "${XIAOZHI_MAIN_DIR}/boards/common/afsk_demod.cc"
     "${XIAOZHI_MAIN_DIR}/boards/common/axp2101.cc"
     "${XIAOZHI_MAIN_DIR}/boards/common/backlight.cc"
     "${XIAOZHI_MAIN_DIR}/boards/common/button.cc"
@@ -106,8 +109,8 @@ function(find_component_by_pattern PATTERN COMPONENT_VAR PATH_VAR)
 endfunction()
 
 # Set default BUILTIN_TEXT_FONT and BUILTIN_ICON_FONT
-set(BUILTIN_TEXT_FONT font_puhui_14_1)
-set(BUILTIN_ICON_FONT font_awesome_14_1)
+set(BUILTIN_TEXT_FONT font_noto_sans_basic_14_1)
+set(BUILTIN_ICON_FONT font_material_symbols_14_1)
 
 set(EMOTE_RESOLUTION "320_240")
 
@@ -115,9 +118,9 @@ set(EMOTE_RESOLUTION "320_240")
 # Set default assets if the board uses partition table V2
 if(CONFIG_BOARD_TYPE_M5STACK_STACK_CHAN)
     set(BOARD_TYPE "m5stack-stack-chan")
-    set(BUILTIN_TEXT_FONT font_puhui_basic_20_4)
-    set(BUILTIN_ICON_FONT font_awesome_20_4)
-    set(DEFAULT_EMOJI_COLLECTION twemoji_64)
+    set(BUILTIN_TEXT_FONT font_noto_sans_basic_20_4)
+    set(BUILTIN_ICON_FONT font_material_symbols_20_4)
+    set(DEFAULT_EMOJI_COLLECTION noto-color-emoji_64)
 endif()
 
 if(MANUFACTURER)
@@ -133,18 +136,12 @@ else()
 endif()
 list(APPEND SOURCES ${BOARD_SOURCES})
 
-# Select audio processor according to Kconfig
-if(CONFIG_USE_AUDIO_PROCESSOR)
-    list(APPEND SOURCES "${XIAOZHI_MAIN_DIR}/audio/processors/afe_audio_processor.cc")
-else()
-    list(APPEND SOURCES "${XIAOZHI_MAIN_DIR}/audio/processors/no_audio_processor.cc")
-endif()
-if(CONFIG_IDF_TARGET_ESP32S3 OR CONFIG_IDF_TARGET_ESP32P4)
-    list(APPEND SOURCES "${XIAOZHI_MAIN_DIR}/audio/wake_words/afe_wake_word.cc")
-    list(APPEND SOURCES "${XIAOZHI_MAIN_DIR}/audio/wake_words/custom_wake_word.cc")
-else()
-    list(APPEND SOURCES "${XIAOZHI_MAIN_DIR}/audio/wake_words/esp_wake_word.cc")
-endif()
+# XiaoZhi v2.5.2 uses one shared AFE engine on ESP32-S3.
+list(APPEND SOURCES
+    "${XIAOZHI_MAIN_DIR}/audio/engines/afe_audio_engine.cc"
+    "${XIAOZHI_MAIN_DIR}/audio/wake_words/custom_wake_word.cc"
+    "${XIAOZHI_MAIN_DIR}/audio/wake_words/wake_word_audio_cache.cc"
+)
 
 # Auto Select Additional Sources
 if (CONFIG_USE_ESP_BLUFI_WIFI_PROVISIONING)
@@ -299,7 +296,10 @@ idf_component_register(SRCS ${SOURCES}
                         esp_netif
                         esp_http_client
                         mbedtls
-                        json
+                        espressif__cjson
+                        esp_eth
+                        esp_driver_ledc
+                        esp_driver_tsens
                         esp_driver_gpio
                         esp_driver_uart
                         esp_driver_spi
@@ -327,9 +327,13 @@ if(NOT BOARD_NAME)
     set(BOARD_NAME ${BOARD_TYPE})
 endif()
 target_compile_definitions(${COMPONENT_LIB}
+                    PRIVATE TEXT_FONT_SIZE=20 TEXT_FONT_BPP=4 BOARD_MANUFACTURER=\"m5stack\"
                     PRIVATE BOARD_TYPE=\"${BOARD_TYPE}\" BOARD_NAME=\"${BOARD_NAME}\"
                     PRIVATE BUILTIN_TEXT_FONT=${BUILTIN_TEXT_FONT} BUILTIN_ICON_FONT=${BUILTIN_ICON_FONT}
                     )
+
+# Pin project code to the upstream C++23 baseline.
+target_compile_options(${COMPONENT_LIB} PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-std=gnu++23>)
 
 # Add generation rules
 add_custom_command(
@@ -425,8 +429,9 @@ function(build_default_assets_bin)
         list(APPEND BUILD_ARGS "--extra_files" "${DEFAULT_ASSETS_EXTRA_FILES}")
     endif()
     
+    list(APPEND BUILD_ARGS "--max_size" "0x400000")
     list(APPEND BUILD_ARGS "--esp_sr_model_path" "${ESP_SR_MODEL_PATH}")
-    list(APPEND BUILD_ARGS "--xiaozhi_fonts_path" "${XIAOZHI_FONTS_PATH}")
+    list(APPEND BUILD_ARGS "--noto_fonts_path" "${XIAOZHI_FONTS_PATH}")
     
     # Create custom command to build assets
     add_custom_command(

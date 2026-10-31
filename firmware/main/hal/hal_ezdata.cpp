@@ -181,7 +181,13 @@ private:
             return "";
         }
 
-        int status_code = http->GetStatusCode();
+        auto status_result = http->GetStatusCode();
+        if (!status_result) {
+            ESP_LOGE(_tag.c_str(), "failed to read HTTP status: %s", status_result.error().ToString().c_str());
+            http->Close();
+            return "";
+        }
+        int status_code = *status_result;
 
         if (status_code != 200) {
             ESP_LOGE(_tag.c_str(), "HTTP request failed, status code: %d", status_code);

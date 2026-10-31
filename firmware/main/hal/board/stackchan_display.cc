@@ -17,6 +17,8 @@
 #include <stackchan/stackchan.h>
 #include <assets/lang_config.h>
 #include <hal/hal.h>
+#include <assets.h>
+#include <cJSON.h>
 
 using namespace stackchan;
 using namespace stackchan::avatar;
@@ -25,14 +27,14 @@ using namespace stackchan::avatar;
 
 LV_FONT_DECLARE(BUILTIN_TEXT_FONT);
 LV_FONT_DECLARE(BUILTIN_ICON_FONT);
-LV_FONT_DECLARE(font_awesome_30_4);
+LV_FONT_DECLARE(font_material_symbols_30_4);
 
 // Have to register themes, so the asset apply can update the text font
 void StackChanAvatarDisplay::InitializeLcdThemes()
 {
     auto text_font       = std::make_shared<LvglBuiltInFont>(&BUILTIN_TEXT_FONT);
     auto icon_font       = std::make_shared<LvglBuiltInFont>(&BUILTIN_ICON_FONT);
-    auto large_icon_font = std::make_shared<LvglBuiltInFont>(&font_awesome_30_4);
+    auto large_icon_font = std::make_shared<LvglBuiltInFont>(&font_material_symbols_30_4);
 
     // light theme
     auto light_theme = new LvglTheme("light");
@@ -197,6 +199,7 @@ StackChanAvatarDisplay::StackChanAvatarDisplay(esp_lcd_panel_io_handle_t panel_i
 StackChanAvatarDisplay::~StackChanAvatarDisplay()
 {
     ESP_LOGI(TAG, "Destroying StackChanAvatarDisplay");
+    resource_emotion_gif_.reset();
 
     if (preview_timer_ != nullptr) {
         esp_timer_stop(preview_timer_);
@@ -266,6 +269,18 @@ void StackChanAvatarDisplay::SetupUI()
         }
     });
 
+    resource_emotion_panel_ = lv_obj_create(avatar->getPanel()->get());
+    lv_obj_remove_style_all(resource_emotion_panel_);
+    lv_obj_set_size(resource_emotion_panel_, width_, height_);
+    lv_obj_center(resource_emotion_panel_);
+    lv_obj_set_style_bg_opa(resource_emotion_panel_, LV_OPA_COVER, 0);
+    lv_obj_remove_flag(resource_emotion_panel_, static_cast<lv_obj_flag_t>(LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE));
+    lv_obj_add_flag(resource_emotion_panel_, LV_OBJ_FLAG_HIDDEN);
+    // DefaultAvatar creates eyes, mouth, then speech. Keep speech above custom images.
+    lv_obj_move_to_index(resource_emotion_panel_, 3);
+    resource_emotion_image_ = lv_image_create(resource_emotion_panel_);
+    lv_obj_center(resource_emotion_image_);
+
     stackchan.attachAvatar(std::move(avatar));
     stackchan.addModifier(std::make_unique<BreathModifier>());
     blink_modifier_id_ = stackchan.addModifier(std::make_unique<BlinkModifier>());
@@ -328,7 +343,8 @@ void StackChanAvatarDisplay::SetEmotion(const char* emotion)
 
     DisplayLockGuard lock(this);
 
-    // ESP_LOGE(TAG, "SetEmotion: %s", emotion);
+    current_emotion_ = emotion;
+    UpdateResourceEmotion(emotion);
 
     auto& avatar = stackchan.avatar();
 
@@ -393,6 +409,10 @@ void StackChanAvatarDisplay::SetChatMessage(const char* role, const char* conten
 
     DisplayLockGuard lock(this);
 
+    if (hide_resource_subtitles_) {
+        stackchan.avatar().clearSpeech();
+        return;
+    }
     if (strcmp(role, "system") == 0) {
         stackchan.avatar().setSpeech(content);
     } else if (strcmp(role, "assistant") == 0) {
@@ -449,7 +469,15 @@ void StackChanAvatarDisplay::UpdateStatusBar(bool update_all)
 
 void StackChanAvatarDisplay::SetTheme(Theme* theme)
 {
+    if (!theme) {
+        ESP_LOGE(TAG, "Cannot apply a null theme");
+        return;
+    }
     ESP_LOGI(TAG, "SetTheme: %s", theme->name().c_str());
+
+    DisplayLockGuard lock(this);
+    Display::SetTheme(theme);
+    ReadResourceDisplayOptions();
 
     auto& stackchan = GetStackChan();
     if (!stackchan.hasAvatar()) {
@@ -457,12 +485,68 @@ void StackChanAvatarDisplay::SetTheme(Theme* theme)
         return;
     }
 
-    DisplayLockGuard lock(this);
-
     auto lvgl_theme = static_cast<LvglTheme*>(theme);
     auto text_font  = lvgl_theme->text_font()->font();
 
     stackchan.avatar().setSpeechTextFont((void*)text_font);
+    UpdateResourceEmotion(current_emotion_.c_str());
+}
+
+void StackChanAvatarDisplay::ReadResourceDisplayOptions()
+{
+    use_resource_emotions_ = false;
+    hide_resource_subtitles_ = false;
+    void* data = nullptr;
+    size_t size = 0;
+    if (!Assets::GetInstance().GetAssetData("index.json", data, size)) {
+        return; // Built-in face is the specified mode without a custom resource pack.
+    }
+    auto index = cJSON_ParseWithLength(static_cast<const char*>(data), size);
+    if (!index) {
+        ESP_LOGE(TAG, "Invalid resource index.json");
+        return;
+    }
+    auto options = cJSON_GetObjectItemCaseSensitive(index, "stackchan");
+    use_resource_emotions_ = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(options, "custom_emotions"));
+    hide_resource_subtitles_ = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(index, "hide_subtitle"));
+    cJSON_Delete(index);
+}
+
+void StackChanAvatarDisplay::UpdateResourceEmotion(const char* emotion)
+{
+    if (!resource_emotion_panel_) {
+        return;
+    }
+    // Callers hold the display lock; discard the old animation before changing its source.
+    lv_obj_add_flag(resource_emotion_panel_, LV_OBJ_FLAG_HIDDEN);
+    resource_emotion_gif_.reset();
+    if (!use_resource_emotions_ || !current_theme_) {
+        return;
+    }
+    auto theme = static_cast<LvglTheme*>(current_theme_);
+    auto collection = theme->emoji_collection();
+    auto source = collection ? collection->GetEmojiImage(emotion) : nullptr;
+    if (!source) {
+        ESP_LOGW(TAG, "Resource pack has no emotion '%s'; displaying procedural face", emotion);
+        return;
+    }
+    lv_obj_set_style_bg_color(resource_emotion_panel_, theme->background_color(), 0);
+    if (source->IsGif()) {
+        resource_emotion_gif_ = std::make_unique<LvglGif>(source->image_dsc());
+        if (!resource_emotion_gif_->IsLoaded()) {
+            ESP_LOGE(TAG, "Cannot decode resource emotion '%s'", emotion);
+            resource_emotion_gif_.reset();
+            return;
+        }
+        resource_emotion_gif_->SetFrameCallback([this]() {
+            lv_image_set_src(resource_emotion_image_, resource_emotion_gif_->image_dsc());
+        });
+        lv_image_set_src(resource_emotion_image_, resource_emotion_gif_->image_dsc());
+        resource_emotion_gif_->Start();
+    } else {
+        lv_image_set_src(resource_emotion_image_, source->image_dsc());
+    }
+    lv_obj_remove_flag(resource_emotion_panel_, LV_OBJ_FLAG_HIDDEN);
 }
 
 #include <hal/board/hal_bridge.h>

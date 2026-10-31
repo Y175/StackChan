@@ -9,7 +9,9 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_timer.h>
 #include <memory>
+#include <display/lvgl_display/gif/lvgl_gif.h>
 
+/** Displays StackChan's animated face, speech and optional resource-pack emotions. */
 class StackChanAvatarDisplay : public LvglDisplay {
 private:
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
@@ -25,7 +27,17 @@ private:
     esp_timer_handle_t preview_timer_                = nullptr;
     std::unique_ptr<LvglImage> preview_image_cached_ = nullptr;
 
+    // The image layer lives below the speech bubble and above the procedural face.
+    lv_obj_t* resource_emotion_panel_ = nullptr;
+    lv_obj_t* resource_emotion_image_ = nullptr;
+    std::unique_ptr<LvglGif> resource_emotion_gif_;
+    bool use_resource_emotions_ = false;
+    bool hide_resource_subtitles_ = false;
+    std::string current_emotion_ = "neutral";
+
     void CreateIdleMotionModifier();
+    void UpdateResourceEmotion(const char* emotion);
+    void ReadResourceDisplayOptions();
 
 protected:
     virtual bool Lock(int timeout_ms = 0) override;

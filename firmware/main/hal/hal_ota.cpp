@@ -13,12 +13,16 @@ static const std::string_view _tag = "HAL-OTA";
 
 bool Hal::updateFirmware(std::function<void(std::string_view)> onLog)
 {
+#if !CONFIG_STACKCHAN_ALLOW_SERVER_FIRMWARE_UPDATE
+    onLog("Custom firmware: server updates disabled; update via USB");
+    return false;
+#endif
     onLog("Checking firmware updates...");
 
     Ota ota;
-    esp_err_t err = ota.CheckVersion();
-    if (err != ESP_OK) {
-        mclog::tagError(_tag, "failed to check firmware version: {}", esp_err_to_name(err));
+    auto check_result = ota.CheckVersion();
+    if (!check_result) {
+        mclog::tagError(_tag, "failed to check firmware version: {}", check_result.error().ToString());
         onLog("Failed to check firmware updates");
         return false;
     }

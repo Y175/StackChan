@@ -1024,17 +1024,17 @@ bool StackChanCamera::SetVFlip(bool enabled)
  * @note 函数会等待之前的编码线程完成后再开始新的处理
  * @warning 如果摄像头缓冲区为空或网络连接失败，将返回错误信息
  */
-std::string StackChanCamera::Explain(const std::string& question)
+std::expected<std::string, std::string> StackChanCamera::Explain(const std::string& question)
 {
     if (explain_url_.empty()) {
-        throw std::runtime_error("Image explain URL or token is not set");
+        return std::unexpected("Image explain URL or token is not set");
     }
 
     // 创建局部的 JPEG 队列, 40 entries is about to store 512 * 40 = 20480 bytes of JPEG data
     QueueHandle_t jpeg_queue = xQueueCreate(40, sizeof(JpegChunk));
     if (jpeg_queue == nullptr) {
         ESP_LOGE(TAG, "Failed to create JPEG queue");
-        throw std::runtime_error("Failed to create JPEG queue");
+        return std::unexpected("Failed to create JPEG queue");
     }
 
     // We spawn a thread to encode the image to JPEG using optimized encoder (cost about 500ms and 8KB SRAM)
@@ -1095,7 +1095,7 @@ std::string StackChanCamera::Explain(const std::string& question)
             }
         }
         vQueueDelete(jpeg_queue);
-        throw std::runtime_error("Failed to connect to explain URL");
+        return std::unexpected("Failed to connect to explain URL");
     }
 
     {
@@ -1141,7 +1141,7 @@ std::string StackChanCamera::Explain(const std::string& question)
 
     if (!saw_terminator || total_sent == 0) {
         ESP_LOGE(TAG, "JPEG encoder failed or produced empty output");
-        throw std::runtime_error("Failed to encode image to JPEG");
+        return std::unexpected("Failed to encode image to JPEG");
     }
 
     {
@@ -1153,9 +1153,14 @@ std::string StackChanCamera::Explain(const std::string& question)
     // 结束块
     http->Write("", 0);
 
-    if (http->GetStatusCode() != 200) {
-        ESP_LOGE(TAG, "Failed to upload photo, status code: %d", http->GetStatusCode());
-        throw std::runtime_error("Failed to upload photo");
+    auto status_result = http->GetStatusCode();
+    if (!status_result) {
+        http->Close();
+        return std::unexpected(status_result.error().ToString());
+    }
+    if (*status_result != 200) {
+        ESP_LOGE(TAG, "Failed to upload photo, status code: %d", *status_result);
+        return std::unexpected("Failed to upload photo");
     }
 
     std::string result = http->ReadAll();

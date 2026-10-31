@@ -5,6 +5,7 @@
 #include "avatar_socket.h"
 #include <network_interface.h>
 #include <esp_timer.h>
+#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
@@ -42,11 +43,11 @@ public:
         if (_stopped) vSemaphoreDelete(_stopped);
     }
 
-    bool Connect(const std::string& host, int port) override
+    NetworkResult<> Connect(const std::string& host, int port) override
     {
         Disconnect();
         if (!_stopped) _stopped = xSemaphoreCreateBinary();
-        if (!_stopped) return false;
+        if (!_stopped) return Fail(NetworkError::NotInitialized(ENOMEM));
         sockaddr_in address{};
         address.sin_family = AF_INET;
         address.sin_port   = htons(port);
@@ -59,7 +60,7 @@ public:
             // carry numeric IPv4 addresses and do not need a DNS lookup.
             if (getaddrinfo(host.c_str(), nullptr, &hints, &result) != 0 || !result) {
                 _last_error = EHOSTUNREACH;
-                return false;
+                return Fail(NetworkError::DnsFailed(EHOSTUNREACH));
             }
             address.sin_addr = reinterpret_cast<sockaddr_in*>(result->ai_addr)->sin_addr;
             freeaddrinfo(result);
@@ -67,7 +68,7 @@ public:
         _fd = socket(AF_INET, SOCK_STREAM, 0);
         if (_fd < 0) {
             _last_error = errno;
-            return false;
+            return Fail(NetworkError::ConnectFailed(errno));
         }
         const int flags = fcntl(_fd, F_GETFL, 0);
         if (flags < 0 || fcntl(_fd, F_SETFL, flags | O_NONBLOCK) < 0) return connectFailed(errno);
@@ -95,7 +96,7 @@ public:
             return connectFailed(ENOMEM);
         }
         _has_task = true;
-        return true;
+        return {};
     }
 
     void Disconnect() override
@@ -155,10 +156,6 @@ public:
         return _running;
     }
 
-    int GetLastError() override
-    {
-        return _last_error;
-    }
     void OnStream(std::function<void(const std::string&)> callback) override
     {
         std::lock_guard<std::mutex> lock(_callbacks);
@@ -182,7 +179,7 @@ private:
     bool _has_task             = false;
     std::mutex _callbacks;
 
-    bool connectFailed(int error)
+    NetworkResult<> connectFailed(int error)
     {
         _last_error = error;
         if (_fd >= 0) {
@@ -190,7 +187,7 @@ private:
             _fd = -1;
         }
         connected_ = false;
-        return false;
+        return Fail(NetworkError::ConnectFailed(error));
     }
     bool waitWritable(int64_t deadline)
     {
@@ -300,9 +297,10 @@ struct AvatarSocket::Impl {
             connected = false;
             if (on_disconnected) on_disconnected();
         });
-        socket->OnError([this](int error) {
+        socket->OnError([this](const NetworkError& error) {
             connected = false;
-            if (on_error) on_error(error);
+            ESP_LOGE("AvatarSocket", "WebSocket error: %s", error.ToString().c_str());
+            if (on_error) on_error(error.native);
         });
     }
     ~Impl()

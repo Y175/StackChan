@@ -4,17 +4,24 @@ import json
 
 
 def clone_or_update_repo(
-    repo_url, path, ref=None, with_submodules=False, patch_path=None
+    repo_url, path, ref=None, with_submodules=False, patch_path=None, expected_commit=None
 ):
-    import os
+    """Prepare a dependency without discarding edits or hiding patch failures."""
 
     if not os.path.exists(path):
-        subprocess.run(["git", "clone", repo_url, path], check=True)
+        subprocess.run(["git", "clone", "--filter=blob:none", repo_url, path], check=True)
     else:
-        subprocess.run(["git", "-C", path, "fetch"], check=True)
+        subprocess.run(["git", "-C", path, "fetch", "origin", ref or "HEAD"], check=True)
 
     if ref:
         subprocess.run(["git", "-C", path, "checkout", ref], check=True)
+
+    if expected_commit:
+        actual_commit = subprocess.check_output(
+            ["git", "-C", path, "rev-parse", "HEAD"], text=True
+        ).strip()
+        if actual_commit != expected_commit:
+            raise RuntimeError(f"Unexpected commit for {path}: {actual_commit}, expected {expected_commit}")
 
     if with_submodules:
         subprocess.run(
@@ -29,7 +36,8 @@ def clone_or_update_repo(
             if os.path.isabs(patch_path)
             else os.path.join(os.getcwd(), patch_path)
         )
-        # 使用 git apply --check 先检测补丁是否能应用，避免报错
+        # Repeated setup may encounter an already-applied patch. Any other
+        # failure must stop the build instead of silently losing board fixes.
         check_result = subprocess.run(
             ["git", "-C", path, "apply", "--check", patch_full_path]
         )
@@ -37,7 +45,13 @@ def clone_or_update_repo(
             subprocess.run(["git", "-C", path, "apply", patch_full_path], check=True)
             print(f"Applied patch {patch_path} to {path}")
         else:
-            print(f"Patch {patch_path} cannot be applied cleanly to {path}, skipped.")
+            reverse_check = subprocess.run(
+                ["git", "-C", path, "apply", "--reverse", "--check", patch_full_path],
+                capture_output=True,
+            )
+            if reverse_check.returncode != 0:
+                raise RuntimeError(f"Patch {patch_path} does not match {path}; inspect local changes")
+            print(f"Patch {patch_path} already applied to {path}")
 
 
 def fetch_dependencies():
@@ -54,7 +68,7 @@ def fetch_dependencies():
         patch = repo.get("patch")
         if patch and not os.path.isabs(patch):
             patch = os.path.join(script_dir, patch)
-        clone_or_update_repo(repo["url"], repo_path, branch, with_submodules, patch)
+        clone_or_update_repo(repo["url"], repo_path, branch, with_submodules, patch, repo.get("commit"))
 
 
 if __name__ == "__main__":

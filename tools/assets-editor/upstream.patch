@@ -1,0 +1,264 @@
+diff --git a/web/index.html b/web/index.html
+index 0802ad3..4dbfdc1 100644
+--- a/web/index.html
++++ b/web/index.html
+@@ -4,7 +4,7 @@
+     <meta charset="UTF-8" />
+     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+-    <title>Xiaozhi AI Customization</title>
++    <title>StackChan 资源编辑器</title>
+   </head>
+   <body>
+     <div id="app"></div>
+diff --git a/web/src/components/ThemeDesign.vue b/web/src/components/ThemeDesign.vue
+index 4daae60..f71018d 100644
+--- a/web/src/components/ThemeDesign.vue
++++ b/web/src/components/ThemeDesign.vue
+@@ -11,6 +11,7 @@
+         <button
+           v-for="tab in tabs"
+           :key="tab.id"
++            :aria-label="tab.name"
+           @click="handleTabClick(tab.id)"
+           :class="[
+             'py-2 px-1 border-b-2 font-medium text-sm relative',
+@@ -166,7 +167,6 @@ const tabs = computed(() => [
+   { id: 'wakeword', name: t('themeDesign.tabs.wakeword'), icon: MicrophoneIcon },
+   { id: 'font', name: t('themeDesign.tabs.font'), icon: FontIcon },
+   { id: 'emoji', name: t('themeDesign.tabs.emoji'), icon: EmojiIcon },
+-  { id: 'background', name: t('themeDesign.tabs.background'), icon: BackgroundIcon }
+ ])
+
+ const localValue = computed({
+diff --git a/web/src/components/tabs/WakewordConfig.vue b/web/src/components/tabs/WakewordConfig.vue
+index 6b251f3..461ebd9 100644
+--- a/web/src/components/tabs/WakewordConfig.vue
++++ b/web/src/components/tabs/WakewordConfig.vue
+@@ -142,6 +142,8 @@
+               v-model="localCustom.model"
+               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
+             >
++              <option value="mn7_cn">MultiNet7（中文，推荐）</option>
++              <option value="mn7_en">MultiNet7（英文）</option>
+               <option value="mn6_cn">{{ $t('wakewordConfig.mn6cn') }}</option>
+               <option value="mn6_en">{{ $t('wakewordConfig.mn6en') }}</option>
+             </select>
+@@ -285,7 +287,7 @@ const localCustom = ref({
+   command: '',
+   threshold: 20,
+   duration: 3000,
+-  model: 'mn6_cn'
++  model: 'mn7_cn'
+ })
+
+ const errors = ref({
+@@ -364,7 +366,7 @@ watch(() => props.modelValue.custom, (newVal) => {
+       command: newVal.command || '',
+       threshold: newVal.threshold !== undefined ? newVal.threshold : 20,
+       duration: newVal.duration !== undefined ? newVal.duration : 3000,
+-      model: newVal.model || 'mn6_cn'
++      model: newVal.model || 'mn7_cn'
+     }
+     nextTick(() => {
+       isUpdatingFromProps.value = false
+diff --git a/web/src/locales/zh-CN.json b/web/src/locales/zh-CN.json
+index 7f2407c..4e68ecf 100644
+--- a/web/src/locales/zh-CN.json
++++ b/web/src/locales/zh-CN.json
+@@ -45,7 +45,7 @@
+     "wakeword": "唤醒词:",
+     "font": "字体:",
+     "emoji": "表情包:",
+-    "fileList": "包含的文件列表",
++    "fileList": "自定义文件预览（大小为估算，另保留系统资源）",
+     "estimated": "预估",
+     "compressed": "压缩前",
+     "generating": "正在生成 assets.bin...",
+@@ -157,7 +157,7 @@
+   },
+   "themeDesign": {
+     "title": "步骤 2: 主题设计",
+-    "description": "配置唤醒词、字体、表情和背景来自定义您的小智AI主题。",
++    "description": "配置 StackChan 的唤醒词、字体和表情。",
+     "previous": "上一步",
+     "next": "下一步",
+     "tabs": {
+@@ -169,7 +169,7 @@
+   },
+     "generateSummary": {
+     "title": "步骤 3: 效果预览",
+-    "description": "预览您的自定义配置在实际设备上的效果。",
++    "description": "检查表情和字体素材；StackChan 的字幕布局以实机为准。",
+     "devicePreview": "设备预览 (1:1 像素比例)",
+     "previewSettings": "预览设置",
+     "previewText": "预览文字",
+@@ -248,8 +248,8 @@
+   "emojiConfig": {
+     "title": "表情集合配置",
+     "description": "选择预设表情包或自定义表情图片。每个表情包包含21种不同情绪的表情。",
+-    "noEmojiPack": "无表情包",
+-    "noEmojiPackDescription": "不配置表情包，打包时只包含字体和背景资源。",
++    "noEmojiPack": "保留 StackChan 表情",
++    "noEmojiPackDescription": "使用 StackChan 原生动态表情。",
+     "presetEmojiPack": "预设表情包",
+     "customEmojiPack": "自定义表情包",
+     "selectPresetEmojiPack": "选择预设表情包",
+@@ -315,7 +315,7 @@
+   "fontConfig": {
+     "title": "字体配置",
+     "description": "选择预设字体或上传自定义字体文件。",
+-    "noFonts": "无字体",
++    "noFonts": "保留基础字体",
+     "noFontsDescription": "不使用字体配置，设备将使用默认字体",
+     "presetFonts": "预设字体",
+     "customFonts": "自定义字体",
+@@ -366,7 +366,7 @@
+     "notSupported": "您的芯片不支持唤醒词功能。",
+     "notice": "注意：",
+     "unsupportedMessage": "{chipModel} 芯片不支持唤醒词功能。如需使用唤醒词，请选择 ESP32-S3、ESP32-P4 或 ESP32-C3/C5/C6 芯片。",
+-    "noWakeword": "关闭唤醒",
++    "noWakeword": "保留基础唤醒词",
+     "presetWakeword": "预设唤醒词",
+     "customWakeword": "自定义唤醒词",
+     "selectWakeword": "选择唤醒词",
+@@ -394,7 +394,7 @@
+     },
+     "tips": {
+       "tipLabel": "提示：",
+-      "optional": "唤醒词是可选的，关闭后设备将无法通过语音唤醒。",
++      "optional": "不修改时保留此固件的基础唤醒词 Hi StackChan。",
+       "wakeNet9sOnly": "C3/C5/C6 芯片仅支持 WakeNet9s 轻量级模型。",
+       "wakeNet9Full": "S3/P4 芯片支持完整的 WakeNet9 模型，选择更多。",
+       "customSupport": "自定义唤醒词使用 MultiNet 模型实现，目前仅支持 ESP32-S3 芯片。"
+diff --git a/web/src/utils/AssetsBuilder.js b/web/src/utils/AssetsBuilder.js
+index 17c5727..260780a 100644
+--- a/web/src/utils/AssetsBuilder.js
++++ b/web/src/utils/AssetsBuilder.js
+@@ -15,6 +15,7 @@ import WakenetModelPacker from './WakenetModelPacker.js'
+ import SpiffsGenerator from './SpiffsGenerator.js'
+ import WasmGifScaler from './WasmGifScaler.js'
+ import configStorage from './ConfigStorage.js'
++import { addStackChanAssets, ASSETS_PARTITION_SIZE } from './StackChanAssets.js'
+
+ class AssetsBuilder {
+   constructor() {
+@@ -737,6 +738,7 @@ class AssetsBuilder {
+       
+       // 处理各类资源文件
+       await this.processResourceFiles(resources, progressCallback)
++      await addStackChanAssets(this.spiffsGenerator, this.config)
+       
+       await new Promise(resolve => setTimeout(resolve, 100))
+       if (progressCallback) progressCallback(90, 'Generating final file...')
+@@ -751,6 +753,7 @@ class AssetsBuilder {
+         }
+       })
+       
++      if (assetsBinData.byteLength > ASSETS_PARTITION_SIZE) throw new Error('资源包超过 StackChan 的 4 MB 分区')
+       if (progressCallback) progressCallback(100, 'Generation completed')
+       
+       return new Blob([assetsBinData], { type: 'application/octet-stream' })
+diff --git a/web/src/utils/font_conv/BrowserFontConverter.js b/web/src/utils/font_conv/BrowserFontConverter.js
+index 800e1b7..242af9d 100644
+--- a/web/src/utils/font_conv/BrowserFontConverter.js
++++ b/web/src/utils/font_conv/BrowserFontConverter.js
+@@ -3,7 +3,7 @@
+  * 基于 lv_font_conv 的核心逻辑，适配浏览器环境
+  */
+
+-import opentype from 'opentype.js'
++import * as opentype from 'opentype.js'
+ import collect_font_data from './CollectFontData.js'
+ import AppError from './AppError.js'
+ import write_cbin from './writers/CBinWriter.js'
+diff --git a/web/src/utils/font_conv/CollectFontData.js b/web/src/utils/font_conv/CollectFontData.js
+index 185bb5d..ab0af9a 100644
+--- a/web/src/utils/font_conv/CollectFontData.js
++++ b/web/src/utils/font_conv/CollectFontData.js
+@@ -1,7 +1,7 @@
+ // Read fonts - ES6 version for browser
+ // 核心字体数据收集模块
+
+-import opentype from 'opentype.js'
++import * as opentype from 'opentype.js'
+ import * as ft_render from './FreeType.js'
+ import AppError from './AppError.js' 
+ import Ranger from './Ranger.js'
+diff --git a/web/src/views/HomePage.vue b/web/src/views/HomePage.vue
+index 3ca01ab..9fa80fa 100644
+--- a/web/src/views/HomePage.vue
++++ b/web/src/views/HomePage.vue
+@@ -1,5 +1,10 @@
+ <template>
+   <div>
++    <div class="mb-6 rounded-lg bg-blue-50 border border-blue-200 p-4">
++      <h1 class="text-xl font-semibold text-blue-900">StackChan 资源编辑器</h1>
++      <p class="text-blue-800 mt-2">小智 v2.5.2 · 唤醒词 / 表情 / 字体</p>
++      <p class="text-sm text-blue-700 mt-1">已预设 320 × 240 屏幕；自动保留菜单和配网资源。选择“不修改”会保留基础资源。生成文件后需重启设备生效。</p>
++    </div>
+     <!-- 配置状态提示（右下角浮动通知） -->
+     <div
+       v-if="hasStoredConfig"
+@@ -50,12 +55,12 @@
+
+     <!-- Step Content -->
+     <div class="bg-white rounded-lg shadow-sm border p-6">
+-      <ChipConfig 
+-        v-if="currentStep === 0"
+-        v-model="config.chip"
+-        @next="nextStep"
+-      />
+-      
++      <section v-if="currentStep === 0">
++        <h2 class="text-xl font-semibold mb-4">StackChan 硬件配置</h2>
++        <p>ESP32-S3 · 320 × 240 · RGB565 · 4 MB 资源分区</p>
++        <button class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg" @click="nextStep">下一步</button>
++      </section>
++
+       <ThemeDesign 
+         v-if="currentStep === 1"
+         v-model="config.theme"
+@@ -92,7 +97,6 @@
+ <script setup>
+ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+ import { useI18n } from 'vue-i18n'
+-import ChipConfig from '@/components/ChipConfig.vue'
+ import ThemeDesign from '@/components/ThemeDesign.vue'
+ import GenerateSummary from '@/components/GenerateSummary.vue'
+ import GenerateModal from '@/components/GenerateModal.vue'
+@@ -132,7 +136,7 @@ const steps = [
+
+ const config = ref({
+   chip: {
+-    model: '',
++    model: 'esp32s3',
+     display: {
+       width: 320,
+       height: 240,
+@@ -148,7 +152,7 @@ const config = ref({
+         command: '',
+         threshold: 20,
+         duration: 3000,
+-        model: 'mn6_cn'
++        model: 'mn7_cn'
+       }
+     },
+     font: {
+@@ -380,6 +384,7 @@ const loadConfigFromStorage = async () => {
+     if (storedData) {
+       // 恢复配置（但不恢复 step 和 tab，总是从第一步开始）
+       config.value = storedData.config
++      config.value.chip = { model: 'esp32s3', display: { width: 320, height: 240, color: 'RGB565' } }
+       // 始终从第一步开始
+       currentStep.value = 0
+       activeThemeTab.value = 'wakeword'
+@@ -532,7 +537,7 @@ const confirmReset = async () => {
+             name: '',
+             command: '',
+             threshold: 20,
+-            model: 'mn6_cn'
++            model: 'mn7_cn'
+           }
+         },
+         font: {

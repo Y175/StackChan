@@ -52,7 +52,13 @@ static bool request_authorized_get(std::string_view token, std::string_view url,
         return false;
     }
 
-    int status_code = http->GetStatusCode();
+    auto status_result = http->GetStatusCode();
+    if (!status_result) {
+        mclog::tagError(_tag, "failed to read HTTP status: {}", status_result.error().ToString());
+        onLog("Failed to read server response");
+        return false;
+    }
+    int status_code = *status_result;
     if (status_code != 200) {
         mclog::tagError(_tag, "account HTTP GET failed, status code: {}", status_code);
         onLog("HTTP Request Failed");
@@ -212,7 +218,13 @@ bool Hal::unbindAccount(std::function<void(std::string_view)> onLog)
         return false;
     }
 
-    int status_code = http->GetStatusCode();
+    auto status_result = http->GetStatusCode();
+    if (!status_result) {
+        mclog::tagError(_tag, "failed to read HTTP status: {}", status_result.error().ToString());
+        onLog("Failed to read server response");
+        return false;
+    }
+    int status_code = *status_result;
     if (status_code != 200) {
         mclog::tagError(_tag, "http post failed, status code: {}", status_code);
         onLog("HTTP Request Failed");
