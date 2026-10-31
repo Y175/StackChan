@@ -11,6 +11,89 @@ index 0802ad3..4dbfdc1 100644
    </head>
    <body>
      <div id="app"></div>
+diff --git a/web/src/App.vue b/web/src/App.vue
+index 9bfc83c..7e7a181 100644
+--- a/web/src/App.vue
++++ b/web/src/App.vue
+@@ -1,25 +1,12 @@
+ <template>
+-  <div class="min-h-screen bg-gray-50">
+-    <!-- Header -->
+-      <header class="bg-white shadow-sm border-b">
+-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+-          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+-            <h1 class="text-2xl font-bold text-gray-900">{{ $t('header.title') }}</h1>
+-            <div class="flex items-center space-x-4">
+-              <DeviceStatus />
+-              <LanguageSelector />
+-            </div>
+-          </div>
+-        </div>
+-      </header>
+-
+-    <!-- Main Content -->
+-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+-      <router-view />
+-    </main>
++  <div class="min-h-screen bg-slate-50">
++    <header class="workspace-header">
++      <div class="workspace-brand"><span class="brand-face" aria-hidden="true">••</span><strong>StackChan 工作台</strong></div>
++      <div class="flex items-center gap-4"><span class="hidden sm:inline text-xs text-slate-500">本地资源编辑</span><DeviceStatus /><LanguageSelector /></div>
++    </header>
++    <main class="workspace-main"><router-view /></main>
+   </div>
+ </template>
+-
+ <script setup>
+ import DeviceStatus from '@/components/DeviceStatus.vue'
+ import LanguageSelector from '@/components/LanguageSelector.vue'
+diff --git a/web/src/components/GenerateSummary.vue b/web/src/components/GenerateSummary.vue
+index 4f5dba2..ea4f94e 100644
+--- a/web/src/components/GenerateSummary.vue
++++ b/web/src/components/GenerateSummary.vue
+@@ -184,24 +184,7 @@
+       </div>
+     </div>
+
+-    <!-- 操作按钮 -->
+-    <div class="flex justify-between">
+-      <button 
+-        @click="$emit('prev')"
+-        class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+-      >
+-        {{ $t('generateSummary.previous') }}
+-      </button>
+-      <button 
+-        @click="$emit('generate')"
+-        class="bg-green-500 hover:bg-green-600 text-white px-8 py-2 rounded-lg font-medium transition-colors flex items-center"
+-      >
+-        <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+-          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+-        </svg>
+-        {{ $t('generateSummary.generate') }}
+-      </button>
+-    </div>
++
+   </div>
+ </template>
+
+@@ -218,7 +201,7 @@ const props = defineProps({
+   }
+ })
+
+-defineEmits(['prev', 'generate'])
++
+
+ // 预览状态
+ const previewText = ref(t('generateSummary.defaultPreviewText'))
+@@ -529,6 +512,7 @@ const getWakewordName = () => {
+ }
+
+ const getFontName = () => {
++  if (props.config.theme.font.type === 'none') return t('fontConfig.noFonts')
+   if (props.config.theme.font.type === 'preset') {
+     // 使用国际化翻译获取预设字体名称
+     return t('fontConfig.presetFontNames.' + props.config.theme.font.preset) || props.config.theme.font.preset
 diff --git a/web/src/components/ThemeDesign.vue b/web/src/components/ThemeDesign.vue
 index 4daae60..f71018d 100644
 --- a/web/src/components/ThemeDesign.vue
@@ -31,6 +114,73 @@ index 4daae60..f71018d 100644
  ])
 
  const localValue = computed({
+diff --git a/web/src/components/tabs/EmojiConfig.vue b/web/src/components/tabs/EmojiConfig.vue
+index 1abce93..5170426 100644
+--- a/web/src/components/tabs/EmojiConfig.vue
++++ b/web/src/components/tabs/EmojiConfig.vue
+@@ -5,6 +5,8 @@
+       <p class="text-gray-600">{{ $t('emojiConfig.description') }}</p>
+     </div>
+
++    <OpenSourceFaces @apply="applyOpenSourcePack" />
++
+     <!-- 表情类型选择 -->
+     <div class="space-y-4">
+       <div class="flex flex-wrap gap-3">
+@@ -47,6 +49,17 @@
+       </p>
+     </div>
+
++    <div v-if="modelValue.type === 'none'" class="rounded-xl border border-slate-200 bg-slate-50 p-5 space-y-3">
++      <h4 class="font-semibold text-slate-900">原生动态脸</h4>
++      <p class="text-sm text-slate-600">保留自动眨眼、呼吸和说话嘴型。使用 StackChan 自带的 LVGL 表情组件，不占用额外 GIF 空间。</p>
++      <label class="flex items-center gap-3 text-sm text-slate-800">
++        <input type="checkbox" :checked="modelValue.nativeEffects === true"
++          @change="$emit('update:modelValue', { ...modelValue, nativeEffects: $event.target.checked })" />
++        随情绪显示心形、脸红、汗滴、生气和眩晕装饰
++      </label>
++      <p class="text-xs text-slate-500">需要写入本分支固件与资源包后生效，网页不直接改变设备表情。</p>
++    </div>
++
+     <div v-if="modelValue.type === 'preset'" class="space-y-4">
+       <h4 class="font-medium text-gray-900">{{ $t('emojiConfig.selectPresetEmojiPack') }}</h4>
+       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+@@ -86,13 +99,13 @@
+             <div
+               v-for="emotion in pack.preview"
+               :key="emotion"
+-              :style="{ width: pack.size + 'px', height: pack.size + 'px' }"
++              :style="{ width: '100%', aspectRatio: '1 / 1' }"
+               class="bg-gray-100 rounded flex items-center justify-center"
+             >
+               <img 
+                 :src="getPresetEmojiUrl(pack.id, emotion)"
+                 :alt="emotion"
+-                :style="{ width: pack.size + 'px', height: pack.size + 'px' }"
++                :style="{ width: '100%', aspectRatio: '1 / 1' }"
+                 class="object-contain rounded"
+                 @error="handleImageError"
+               />
+@@ -207,6 +220,7 @@
+ import { ref, computed, watch } from 'vue'
+ import { useI18n } from 'vue-i18n'
+ import StorageHelper from '@/utils/StorageHelper.js'
++import OpenSourceFaces from '@/components/OpenSourceFaces.vue'
+
+ const { t } = useI18n()
+
+@@ -219,6 +233,11 @@ const props = defineProps({
+
+ const emit = defineEmits(['update:modelValue'])
+
++const applyOpenSourcePack = (value) => {
++  localCustom.value.size = { ...value.custom.size }
++  emit('update:modelValue', { ...value, nativeEffects: props.modelValue.nativeEffects === true })
++}
++
+ /**
+  * 计算文件的 SHA-256 hash
+  * @param {File} file - 文件对象
 diff --git a/web/src/components/tabs/WakewordConfig.vue b/web/src/components/tabs/WakewordConfig.vue
 index 6b251f3..461ebd9 100644
 --- a/web/src/components/tabs/WakewordConfig.vue
@@ -63,7 +213,7 @@ index 6b251f3..461ebd9 100644
      nextTick(() => {
        isUpdatingFromProps.value = false
 diff --git a/web/src/locales/zh-CN.json b/web/src/locales/zh-CN.json
-index 7f2407c..4e68ecf 100644
+index 7f2407c..05380d5 100644
 --- a/web/src/locales/zh-CN.json
 +++ b/web/src/locales/zh-CN.json
 @@ -45,7 +45,7 @@
@@ -75,6 +225,15 @@ index 7f2407c..4e68ecf 100644
      "estimated": "预估",
      "compressed": "压缩前",
      "generating": "正在生成 assets.bin...",
+@@ -78,7 +78,7 @@
+     "emoji": "处理表情图片",
+     "background": "处理背景图片",
+     "index": "生成索引文件",
+-    "spiffs": "构建SPIFFS映射",
++    "spiffs": "构建资源文件目录",
+     "package": "完成打包"
+   },
+   "errors": {
 @@ -157,7 +157,7 @@
    },
    "themeDesign": {
@@ -84,21 +243,27 @@ index 7f2407c..4e68ecf 100644
      "previous": "上一步",
      "next": "下一步",
      "tabs": {
-@@ -169,7 +169,7 @@
+@@ -167,9 +167,9 @@
+       "background": "聊天背景"
+     }
    },
-     "generateSummary": {
-     "title": "步骤 3: 效果预览",
+-    "generateSummary": {
+-    "title": "步骤 3: 效果预览",
 -    "description": "预览您的自定义配置在实际设备上的效果。",
++  "generateSummary": {
++    "title": "效果预览",
 +    "description": "检查表情和字体素材；StackChan 的字幕布局以实机为准。",
      "devicePreview": "设备预览 (1:1 像素比例)",
      "previewSettings": "预览设置",
      "previewText": "预览文字",
-@@ -248,8 +248,8 @@
+@@ -247,9 +247,9 @@
+   },
    "emojiConfig": {
      "title": "表情集合配置",
-     "description": "选择预设表情包或自定义表情图片。每个表情包包含21种不同情绪的表情。",
+-    "description": "选择预设表情包或自定义表情图片。每个表情包包含21种不同情绪的表情。",
 -    "noEmojiPack": "无表情包",
 -    "noEmojiPackDescription": "不配置表情包，打包时只包含字体和背景资源。",
++    "description": "选择原生动态脸、开源动画或自定义图片，配置 21 个情绪状态。",
 +    "noEmojiPack": "保留 StackChan 表情",
 +    "noEmojiPackDescription": "使用 StackChan 原生动态表情。",
      "presetEmojiPack": "预设表情包",
@@ -131,6 +296,47 @@ index 7f2407c..4e68ecf 100644
        "wakeNet9sOnly": "C3/C5/C6 芯片仅支持 WakeNet9s 轻量级模型。",
        "wakeNet9Full": "S3/P4 芯片支持完整的 WakeNet9 模型，选择更多。",
        "customSupport": "自定义唤醒词使用 MultiNet 模型实现，目前仅支持 ESP32-S3 芯片。"
+diff --git a/web/src/style.css b/web/src/style.css
+index 5a397e6..ec79635 100644
+--- a/web/src/style.css
++++ b/web/src/style.css
+@@ -34,3 +34,36 @@ body {
+ .tab-button.inactive {
+   @apply text-gray-500 border-transparent hover:text-gray-700 hover:border-gray-300;
+ }
++
++/* StackChan 的固定硬件无需重复配置，资源入口保持可直接访问。 */
++.workspace-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 32px; border-bottom: 1px solid #e2e8f0; background: #fff; }
++.workspace-brand { display: flex; align-items: center; gap: 10px; color: #0f172a; font-size: 17px; }
++.brand-face { display: grid; place-items: center; width: 32px; height: 30px; border-radius: 9px; background: #0f172a; color: #fff; letter-spacing: 5px; padding-left: 5px; font-size: 19px; }
++.workspace-main { max-width: 1440px; margin: auto; padding: 28px 32px; }
++.resource-workspace { display: grid; grid-template-columns: 208px minmax(0, 1fr); gap: 32px; align-items: start; }
++.workspace-sidebar { position: sticky; top: 24px; }
++.sidebar-eyebrow { margin: 4px 12px 14px; color: #64748b; font-size: 12px; }
++.resource-navigation { display: flex; flex-direction: column; gap: 5px; }
++.resource-nav-item { width: 100%; display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 13px 14px; border-radius: 10px; color: #475569; }
++.resource-nav-item span { font-size: 14px; font-weight: 600; }
++.resource-nav-item small { font-size: 11px; color: #64748b; }
++.resource-nav-item:hover { background: #e8eef5; }
++.resource-nav-item.selected { background: #dce8fb; color: #1947a2; }
++.sidebar-device { margin: 28px 12px 0; padding-top: 20px; border-top: 1px solid #dbe3ed; display: flex; flex-direction: column; gap: 6px; color: #334155; font-size: 12px; }
++.sidebar-device strong { font-size: 15px; }
++.workspace-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 18px; margin-bottom: 22px; }
++.export-button { background: #2563eb; color: white; padding: 11px 20px; border-radius: 9px; font-weight: 600; font-size: 14px; }
++.export-button:hover { background: #1d4ed8; }
++.export-button:disabled { opacity: .5; }
++.resource-content { padding: 26px; background: white; border: 1px solid #e2e8f0; border-radius: 14px; min-height: 420px; }
++button:focus-visible, a:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
++@media (max-width: 800px) {
++  .workspace-header { padding: 15px 18px; flex-wrap: wrap; }
++  .workspace-main { padding: 20px 16px; }
++  .resource-workspace { grid-template-columns: 1fr; gap: 20px; }
++  .workspace-sidebar { position: static; }
++  .resource-navigation { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
++  .resource-nav-item { padding: 11px 7px; text-align: center; align-items: center; }
++  .resource-nav-item small, .sidebar-device, .sidebar-eyebrow { display: none; }
++  .resource-content { padding: 18px; }
++}
 diff --git a/web/src/utils/AssetsBuilder.js b/web/src/utils/AssetsBuilder.js
 index 17c5727..260780a 100644
 --- a/web/src/utils/AssetsBuilder.js
@@ -186,49 +392,181 @@ index 185bb5d..ab0af9a 100644
  import AppError from './AppError.js' 
  import Ranger from './Ranger.js'
 diff --git a/web/src/views/HomePage.vue b/web/src/views/HomePage.vue
-index 3ca01ab..9fa80fa 100644
+index 3ca01ab..ed8316c 100644
 --- a/web/src/views/HomePage.vue
 +++ b/web/src/views/HomePage.vue
-@@ -1,5 +1,10 @@
+@@ -1,99 +1,57 @@
  <template>
-   <div>
-+    <div class="mb-6 rounded-lg bg-blue-50 border border-blue-200 p-4">
-+      <h1 class="text-xl font-semibold text-blue-900">StackChan 资源编辑器</h1>
-+      <p class="text-blue-800 mt-2">小智 v2.5.2 · 唤醒词 / 表情 / 字体</p>
-+      <p class="text-sm text-blue-700 mt-1">已预设 320 × 240 屏幕；自动保留菜单和配网资源。选择“不修改”会保留基础资源。生成文件后需重启设备生效。</p>
-+    </div>
-     <!-- 配置状态提示（右下角浮动通知） -->
-     <div
-       v-if="hasStoredConfig"
-@@ -50,12 +55,12 @@
-
-     <!-- Step Content -->
-     <div class="bg-white rounded-lg shadow-sm border p-6">
+-  <div>
+-    <!-- 配置状态提示（右下角浮动通知） -->
+-    <div
+-      v-if="hasStoredConfig"
+-      class="fixed bottom-4 right-4 z-50 bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-lg transition-opacity duration-300 min-w-[300px]"
+-      @mouseenter="resetAutoHideTimer"
+-    >
+-      <div class="flex items-center justify-between mb-2">
+-        <div class="flex items-center">
+-          <svg class="w-5 h-5 text-blue-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+-          </svg>
+-          <span class="text-blue-800 font-medium">{{ $t('configNotice.title') }}</span>
+-        </div>
+-        <button 
+-          @click="closeConfigNotice"
+-          class="text-gray-500 hover:text-gray-700"
+-        >
+-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+-          </svg>
+-        </button>
+-      </div>
+-      <p class="text-blue-600 text-sm mb-3">
+-        {{ $t('configNotice.message') }}
+-      </p>
+-      <div class="flex justify-end space-x-2">
+-        <button 
+-          @click="confirmReset"
+-          class="px-3 py-1 text-sm text-red-600 hover:text-red-800 font-medium"
+-        >
+-          {{ $t('configNotice.restart') }}
++  <div class="resource-workspace">
++    <aside class="workspace-sidebar">
++      <p class="sidebar-eyebrow">资源配置</p>
++      <nav aria-label="资源配置菜单" class="resource-navigation">
++        <button v-for="tab in resourceTabs" :key="tab.id" @click="activeThemeTab = tab.id; validationError = ''"
++          :aria-current="activeThemeTab === tab.id ? 'page' : undefined"
++          :class="['resource-nav-item', { selected: activeThemeTab === tab.id }]">
++          <span>{{ tab.label }}</span><small>{{ tab.detail }}</small>
+         </button>
++      </nav>
++      <div class="sidebar-device">
++        <span class="text-xs text-slate-500">目标设备</span>
++        <strong>StackChan</strong>
++        <p>小智 v2.5.2 · 320 × 240</p>
++        <p class="mt-2">资源分区 4 MB</p>
+       </div>
+-    </div>
+-
+-    <!-- Step Indicator -->
+-    <div class="flex items-center justify-center mb-8">
+-      <div v-for="(step, index) in steps" :key="index" class="flex items-center">
+-        <div class="flex flex-col items-center">
+-          <div :class="getStepClass(index)">
+-            {{ index + 1 }}
+-          </div>
+-          <span class="text-sm mt-2 text-gray-600">{{ $t(step.titleKey) }}</span>
++    </aside>
++    <section class="min-w-0">
++      <div class="workspace-toolbar">
++        <div>
++          <p class="text-xs tracking-wide text-slate-500 mb-1">StackChan / 资源配置</p>
++          <h1 class="text-2xl font-semibold text-slate-900">让它有自己的个性</h1>
++          <p class="text-sm text-slate-500 mt-2">直接选择菜单编辑，随时预览与导出。</p>
+         </div>
+-        <div v-if="index < steps.length - 1" class="w-16 h-0.5 bg-gray-300 mx-4"></div>
++        <button @click="handleGenerate" :disabled="isLoading" class="export-button">导出资源包</button>
+       </div>
+-    </div>
+-
+-    <!-- Step Content -->
+-    <div class="bg-white rounded-lg shadow-sm border p-6">
 -      <ChipConfig 
 -        v-if="currentStep === 0"
 -        v-model="config.chip"
 -        @next="nextStep"
 -      />
 -      
-+      <section v-if="currentStep === 0">
-+        <h2 class="text-xl font-semibold mb-4">StackChan 硬件配置</h2>
-+        <p>ESP32-S3 · 320 × 240 · RGB565 · 4 MB 资源分区</p>
-+        <button class="mt-6 px-6 py-2 bg-blue-600 text-white rounded-lg" @click="nextStep">下一步</button>
-+      </section>
-+
-       <ThemeDesign 
-         v-if="currentStep === 1"
-         v-model="config.theme"
-@@ -92,7 +97,6 @@
+-      <ThemeDesign 
+-        v-if="currentStep === 1"
+-        v-model="config.theme"
+-        :chipModel="config.chip.model"
+-        :activeTab="activeThemeTab"
+-        @next="nextStep"
+-        @prev="prevStep"
+-        @tabChange="handleThemeTabChange"
+-      />
+-      
+-      <GenerateSummary 
+-        v-if="currentStep === 2"
+-        :config="config"
+-        @generate="handleGenerate"
+-        @prev="prevStep"
+-      />
+-    </div>
+-
+-    <!-- Generate Modal -->
+-    <GenerateModal
+-      v-if="showGenerateModal"
+-      :config="config"
+-      @close="showGenerateModal = false"
+-      @generate="handleModalGenerate"
+-      @startFlash="handleStartFlash"
+-      @cancelFlash="handleCancelFlash"
+-    />
+-
+-    <!-- Reset Confirmation Modal -->
+-    <!-- 移除重置确认对话框 -->
++      <div class="mb-5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
++        <span>{{ hasStoredConfig ? '已恢复本地草稿' : '编辑内容自动保存在此浏览器' }}</span>
++        <span>导出不会修改设备；写入资源包并重启后生效</span>
++      </div>
++      <p v-if="storageError" role="alert" class="mb-4 rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">{{ storageError }}</p>
++      <p v-if="validationError" role="alert" class="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{{ validationError }}</p>
++      <div class="resource-content">
++        <p v-if="isLoading" role="status">正在载入草稿…</p>
++        <template v-else>
++          <WakewordConfig v-if="activeThemeTab === 'wakeword'" v-model="config.theme.wakeword" :chipModel="config.chip.model" />
++          <EmojiConfig v-if="activeThemeTab === 'emoji'" v-model="config.theme.emoji" />
++          <FontConfig v-if="activeThemeTab === 'font'" v-model="config.theme.font" />
++          <GenerateSummary v-if="activeThemeTab === 'preview'" :config="config" @generate="handleGenerate" />
++        </template>
++      </div>
++    </section>
++    <GenerateModal v-if="showGenerateModal" :config="config" @close="showGenerateModal = false"
++      @generate="handleModalGenerate" @startFlash="handleStartFlash" @cancelFlash="handleCancelFlash" />
+   </div>
+ </template>
+
  <script setup>
- import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
++import { ref, watch, onMounted, onUnmounted } from 'vue'
  import { useI18n } from 'vue-i18n'
 -import ChipConfig from '@/components/ChipConfig.vue'
- import ThemeDesign from '@/components/ThemeDesign.vue'
+-import ThemeDesign from '@/components/ThemeDesign.vue'
++import WakewordConfig from '@/components/tabs/WakewordConfig.vue'
++import FontConfig from '@/components/tabs/FontConfig.vue'
++import EmojiConfig from '@/components/tabs/EmojiConfig.vue'
  import GenerateSummary from '@/components/GenerateSummary.vue'
  import GenerateModal from '@/components/GenerateModal.vue'
-@@ -132,7 +136,7 @@ const steps = [
+ import configStorage from '@/utils/ConfigStorage.js'
+@@ -109,7 +67,14 @@ const {
+ // 使用国际化
+ const { t } = useI18n()
 
+-const currentStep = ref(0)
++const validationError = ref('')
++const storageError = ref('')
++const resourceTabs = [
++  { id: 'wakeword', label: '唤醒词', detail: '呼唤它的名字' },
++  { id: 'emoji', label: '表情与动画', detail: '原生脸 / 开源素材 / 自定义' },
++  { id: 'font', label: '字体与字幕', detail: '阅读与显示' },
++  { id: 'preview', label: '效果预览', detail: '检查当前资源' }
++]
+ const showGenerateModal = ref(false)
+ const activeThemeTab = ref('wakeword') // 保持主题设计页面的tab状态
+
+@@ -122,17 +87,9 @@ const assetsBuilder = new AssetsBuilder()
+ const autoHideTimer = ref(null) // 新增：自动隐藏定时器
+ const webSocketTransfer = ref(null) // WebSocket传输实例
+
+-// 注意：由于在setup函数外部，我们需要在这里定义一个函数来获取翻译
+-// 或者我们可以将这个移到setup函数内部
+-const steps = [
+-  { titleKey: 'steps.chip', key: 'chip' },
+-  { titleKey: 'steps.theme', key: 'theme' },
+-  { titleKey: 'steps.generate', key: 'generate' }
+-]
+-
  const config = ref({
    chip: {
 -    model: '',
@@ -236,7 +574,7 @@ index 3ca01ab..9fa80fa 100644
      display: {
        width: 320,
        height: 240,
-@@ -148,7 +152,7 @@ const config = ref({
+@@ -148,7 +105,7 @@ const config = ref({
          command: '',
          threshold: 20,
          duration: 3000,
@@ -245,15 +583,111 @@ index 3ca01ab..9fa80fa 100644
        }
      },
      font: {
-@@ -380,6 +384,7 @@ const loadConfigFromStorage = async () => {
+@@ -187,36 +144,27 @@ const config = ref({
+   }
+ })
+
+-const canGenerate = computed(() => {
+-  return config.value.chip.model && 
+-         (config.value.theme.font.type === 'none' || config.value.theme.font.preset || config.value.theme.font.custom.file)
+-})
+-
+-const getStepClass = (index) => {
+-  if (index < currentStep.value) return 'step-indicator completed'
+-  if (index === currentStep.value) return 'step-indicator active'
+-  return 'step-indicator inactive'
+-}
+-
+-const nextStep = async () => {
+-  if (currentStep.value < steps.length - 1) {
+-    currentStep.value++
+-    
+-    // 启用自动保存（如果还没启用的话）
+-    if (!isAutoSaveEnabled.value) {
+-      isAutoSaveEnabled.value = true
+-      await saveConfigToStorage()
++/** 在导出边界校验配置；页面切换允许保留尚未填完的草稿。 */
++const handleGenerate = () => {
++  validationError.value = ''
++  const { wakeword, font } = config.value.theme
++  if (wakeword.type === 'custom') {
++    if (!wakeword.custom.name?.trim() || !wakeword.custom.command?.trim()) {
++      validationError.value = '请先填写唤醒词名称和发音。'
++      activeThemeTab.value = 'wakeword'
++      return
++    }
++    if (!Number.isFinite(wakeword.custom.duration) || wakeword.custom.duration < 500 || wakeword.custom.duration > 10000) {
++      validationError.value = t('wakewordConfig.errors.durationRange')
++      activeThemeTab.value = 'wakeword'
++      return
+     }
+   }
+-}
+-
+-const prevStep = () => {
+-  if (currentStep.value > 0) {
+-    currentStep.value--
++  if (font.type === 'custom' && !font.custom?.file) {
++    validationError.value = t('fontConfig.selectValidFontFile')
++    activeThemeTab.value = 'font'
++    return
+   }
+-}
+-
+-const handleGenerate = () => {
+   showGenerateModal.value = true
+ }
+
+@@ -367,10 +315,6 @@ const handleCancelFlash = () => {
+   }
+ }
+
+-const handleThemeTabChange = (tabId) => {
+-  activeThemeTab.value = tabId
+-}
+-
+ // 从存储加载配置
+ const loadConfigFromStorage = async () => {
+   try {
+@@ -378,10 +322,10 @@ const loadConfigFromStorage = async () => {
+     const storedData = await configStorage.loadConfig()
+     
      if (storedData) {
-       // 恢复配置（但不恢复 step 和 tab，总是从第一步开始）
+-      // 恢复配置（但不恢复 step 和 tab，总是从第一步开始）
++      // 恢复草稿，进入默认资源菜单。
        config.value = storedData.config
+-      // 始终从第一步开始
+-      currentStep.value = 0
 +      config.value.chip = { model: 'esp32s3', display: { width: 320, height: 240, color: 'RGB565' } }
-       // 始终从第一步开始
-       currentStep.value = 0
++      // 导航不影响资源配置。
        activeThemeTab.value = 'wakeword'
-@@ -532,7 +537,7 @@ const confirmReset = async () => {
+       hasStoredConfig.value = true // 显示"检测到已保存的配置"提示
+       isAutoSaveEnabled.value = true // 启用自动保存
+@@ -431,10 +375,11 @@ const loadConfigFromStorage = async () => {
+       
+     } else {
+       hasStoredConfig.value = false
+-      isAutoSaveEnabled.value = false
++      isAutoSaveEnabled.value = true
+     }
+   } catch (error) {
+     console.error('加载配置失败:', error)
++    storageError.value = '无法恢复本地草稿：' + error.message
+     hasStoredConfig.value = false
+     isAutoSaveEnabled.value = false
+   } finally {
+@@ -502,8 +447,10 @@ const cleanupLegacyEmojiData = async () => {
+ const saveConfigToStorage = async () => {
+   try {
+     await configStorage.saveConfig(config.value)
++    storageError.value = ''
+   } catch (error) {
+     console.error('保存配置失败:', error)
++    storageError.value = '草稿保存失败：' + error.message
+   }
+ }
+
+@@ -532,7 +479,7 @@ const confirmReset = async () => {
              name: '',
              command: '',
              threshold: 20,
@@ -262,3 +696,23 @@ index 3ca01ab..9fa80fa 100644
            }
          },
          font: {
+@@ -572,10 +519,9 @@ const confirmReset = async () => {
+     }
+     
+     // 重置步骤和状态
+-    currentStep.value = 0
+     activeThemeTab.value = 'wakeword'
+     hasStoredConfig.value = false
+-    isAutoSaveEnabled.value = false
++    isAutoSaveEnabled.value = true
+     
+   } catch (error) {
+     console.error('重置配置失败:', error)
+@@ -594,7 +540,6 @@ watch(config, async (newConfig) => {
+
+ // 页面加载时初始化
+ onMounted(async () => {
+-  await configStorage.initialize()
+   await loadConfigFromStorage()
+ })
+

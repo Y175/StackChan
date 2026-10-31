@@ -15,6 +15,7 @@
 #include <lvgl.h>
 #include <lvgl_theme.h>
 #include <stackchan/stackchan.h>
+#include <stackchan/avatar/decorators/decorators.h>
 #include <assets/lang_config.h>
 #include <hal/hal.h>
 #include <assets.h>
@@ -345,15 +346,19 @@ void StackChanAvatarDisplay::SetEmotion(const char* emotion)
 
     current_emotion_ = emotion;
     UpdateResourceEmotion(emotion);
+    UpdateNativeEmotionDecoration(emotion);
 
     auto& avatar = stackchan.avatar();
 
     // Map emotion string to stackchan::Emotion
     if (strcmp(emotion, "neutral") == 0) {
         avatar.setEmotion(Emotion::Neutral);
-    } else if (strcmp(emotion, "happy") == 0) {
-        avatar.setEmotion(Emotion::Happy);
-    } else if (strcmp(emotion, "laughing") == 0) {
+    } else if (strcmp(emotion, "happy") == 0 || strcmp(emotion, "laughing") == 0 ||
+               strcmp(emotion, "funny") == 0 || strcmp(emotion, "loving") == 0 ||
+               strcmp(emotion, "embarrassed") == 0 || strcmp(emotion, "winking") == 0 ||
+               strcmp(emotion, "cool") == 0 || strcmp(emotion, "relaxed") == 0 ||
+               strcmp(emotion, "delicious") == 0 || strcmp(emotion, "kissy") == 0 ||
+               strcmp(emotion, "confident") == 0 || strcmp(emotion, "silly") == 0) {
         avatar.setEmotion(Emotion::Happy);
     } else if (strcmp(emotion, "angry") == 0) {
         avatar.setEmotion(Emotion::Angry);
@@ -380,7 +385,9 @@ void StackChanAvatarDisplay::SetEmotion(const char* emotion)
         auto& motion = GetStackChan().motion();
         motion.pitchServo().moveWithSpeed(0, 80);
 
-    } else if (strcmp(emotion, "doubtful") == 0) {
+    } else if (strcmp(emotion, "doubtful") == 0 || strcmp(emotion, "confused") == 0 ||
+               strcmp(emotion, "thinking") == 0 || strcmp(emotion, "surprised") == 0 ||
+               strcmp(emotion, "shocked") == 0) {
         avatar.setEmotion(Emotion::Doubt);
     } else {
         ESP_LOGW(TAG, "Unknown emotion: %s, using NEUTRAL", emotion);
@@ -490,12 +497,14 @@ void StackChanAvatarDisplay::SetTheme(Theme* theme)
 
     stackchan.avatar().setSpeechTextFont((void*)text_font);
     UpdateResourceEmotion(current_emotion_.c_str());
+    UpdateNativeEmotionDecoration(current_emotion_.c_str());
 }
 
 void StackChanAvatarDisplay::ReadResourceDisplayOptions()
 {
     use_resource_emotions_ = false;
     hide_resource_subtitles_ = false;
+    native_expression_effects_ = false;
     void* data = nullptr;
     size_t size = 0;
     if (!Assets::GetInstance().GetAssetData("index.json", data, size)) {
@@ -508,8 +517,42 @@ void StackChanAvatarDisplay::ReadResourceDisplayOptions()
     }
     auto options = cJSON_GetObjectItemCaseSensitive(index, "stackchan");
     use_resource_emotions_ = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(options, "custom_emotions"));
+    native_expression_effects_ = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(options, "native_expression_effects"));
     hide_resource_subtitles_ = cJSON_IsTrue(cJSON_GetObjectItemCaseSensitive(index, "hide_subtitle"));
     cJSON_Delete(index);
+}
+
+void StackChanAvatarDisplay::UpdateNativeEmotionDecoration(const char* emotion)
+{
+    auto& stackchan = GetStackChan();
+    if (!stackchan.hasAvatar() || !resource_emotion_panel_) {
+        return;
+    }
+    auto& avatar = stackchan.avatar();
+    if (emotion_decorator_id_ >= 0) {
+        avatar.removeDecorator(emotion_decorator_id_);
+        emotion_decorator_id_ = -1;
+    }
+    // GIF/PNG faces already contain their artwork. Decorations belong to the native face only.
+    if (!native_expression_effects_ || use_resource_emotions_) {
+        return;
+    }
+    lv_obj_t* parent = lv_obj_get_parent(resource_emotion_panel_);
+    std::unique_ptr<Decorator> decoration;
+    if (strcmp(emotion, "loving") == 0 || strcmp(emotion, "kissy") == 0) {
+        decoration = std::make_unique<HeartDecorator>(parent);
+    } else if (strcmp(emotion, "embarrassed") == 0) {
+        decoration = std::make_unique<ShyDecorator>(parent);
+    } else if (strcmp(emotion, "angry") == 0) {
+        decoration = std::make_unique<AngryDecorator>(parent);
+    } else if (strcmp(emotion, "shocked") == 0 || strcmp(emotion, "surprised") == 0) {
+        decoration = std::make_unique<SweatDecorator>(parent);
+    } else if (strcmp(emotion, "confused") == 0) {
+        decoration = std::make_unique<DizzyDecorator>(parent);
+    }
+    if (decoration) {
+        emotion_decorator_id_ = avatar.addDecorator(std::move(decoration));
+    }
 }
 
 void StackChanAvatarDisplay::UpdateResourceEmotion(const char* emotion)

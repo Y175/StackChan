@@ -29,7 +29,21 @@ test('default selections preserve stock wake word, font and menu bytes', async (
   }
   const index = JSON.parse(new TextDecoder().decode(result.get('index.json').data))
   assert.equal(index.stackchan.custom_emotions, false)
+  assert.equal(index.stackchan.native_expression_effects, false)
   assert.equal(index.srmodels, 'srmodels.bin')
+})
+
+test('native decoration opt-in survives packing without replacing the procedural face', async () => {
+  const pack = new SpiffsGenerator()
+  pack.addFile('index.json', encode({ version: 1 }))
+  const selection = config()
+  selection.theme.emoji.nativeEffects = true
+  mergeStackChanAssets(pack, await baseline(), selection)
+  const entries = decodeAssets(await pack.generate())
+  const index = JSON.parse(new TextDecoder().decode(entries.get('index.json').data))
+  assert.equal(index.stackchan.native_expression_effects, true)
+  assert.equal(index.stackchan.custom_emotions, false)
+  assert.ok(entries.has('icon_ai_agent.bin'))
 })
 
 test('custom model and emotion replace their references while menus remain', async () => {

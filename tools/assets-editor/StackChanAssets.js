@@ -82,7 +82,12 @@ export function mergeStackChanAssets(generator, baseline, config) {
   if (customEmotions) {
     for (const emoji of baseIndex.emoji_collection || []) replaced.add(emoji.file)
   }
-  mergedIndex.stackchan = { format: 1, custom_emotions: customEmotions, xiaozhi: '2.5.2' }
+  mergedIndex.stackchan = {
+    format: 1,
+    custom_emotions: customEmotions,
+    native_expression_effects: config.theme.emoji.nativeEffects === true,
+    xiaozhi: '2.5.2'
+  }
   for (const [name, file] of baseline) {
     if (replaced.has(name)) continue
     if (generated.has(name)) throw new Error(`自定义资源与 StackChan 系统文件重名: ${name}`)

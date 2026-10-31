@@ -1,0 +1,44 @@
+{
+  "source": "https://github.com/migratorywhale/stackchan-mcp",
+  "commit": "7673c4c9cb93a342824f94c2a91432e4cdbafcf0",
+  "source_file": "firmware/src/gif_assets.h",
+  "license": "MIT",
+  "method": "Extracted byte arrays without modification; resize happens during asset export.",
+  "files": [
+    {
+      "file": "calm.gif",
+      "bytes": 22356,
+      "sha256": "91d80a7a942e315edd9b4c6b32181139895ec13d7ebfabf46dfb621f399e096a"
+    },
+    {
+      "file": "thinking.gif",
+      "bytes": 20258,
+      "sha256": "b5bdfebb5c7168bac2f8844ae79cbf7b5a9ba8273bf98929838711009208653b"
+    },
+    {
+      "file": "happy.gif",
+      "bytes": 22514,
+      "sha256": "dd785326d79d58e49db6d1d1e01efa2586c86b72d87d2e15aa6c89dd14db0fbf"
+    },
+    {
+      "file": "sleepy.gif",
+      "bytes": 20936,
+      "sha256": "40d0f93e335eea1e7bc3688e76a6bf854513b2e590124492f54c4e8563b3cc70"
+    },
+    {
+      "file": "shy.gif",
+      "bytes": 20227,
+      "sha256": "d434049b5a2335688cf5cbde7db4011f8cf9ac397de808c8b0eb67dbd3678ac3"
+    },
+    {
+      "file": "smug.gif",
+      "bytes": 26901,
+      "sha256": "6137144e2685d53b8e4a1967b022fe62ff02f820248f480a2427cff29cfb64ac"
+    },
+    {
+      "file": "pouty.gif",
+      "bytes": 20587,
+      "sha256": "e5288641601e95b570de6230bf23292b4706ad3a632b4d3facc778873666541e"
+    }
+  ]
+}

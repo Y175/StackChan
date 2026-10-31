@@ -1,0 +1,2 @@
+# Vendor patches must preserve whitespace in upstream context and removed lines.
+tools/assets-editor/upstream.patch -whitespace

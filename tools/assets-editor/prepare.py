@@ -28,6 +28,10 @@ def prepare(assets_path):
         subprocess.run(["git", "-C", str(upstream), "apply", "--reverse", "--check", patch], check=True)
     web = upstream / "web"
     shutil.copyfile(ROOT / "StackChanAssets.js", web / "src/utils/StackChanAssets.js")
+    for component in (ROOT / "components").glob("*.vue"):
+        shutil.copyfile(component, web / "src/components" / component.name)
+    if (ROOT / "public").exists():
+        shutil.copytree(ROOT / "public", web / "public", dirs_exist_ok=True)
     shutil.copyfile(ROOT / "package-lock.json", web / "package-lock.json")
     if not assets_path.is_file():
         raise FileNotFoundError(f"Build the firmware first: missing {assets_path}")

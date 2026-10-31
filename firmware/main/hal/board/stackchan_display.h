@@ -20,6 +20,10 @@ private:
     int idle_motion_modifier_id_        = -1;
     int idle_expression_modifier_id_    = -1;
     int blink_modifier_id_              = -1;
+    // Only this display's emotion decoration is removed when an emotion changes.
+    int emotion_decorator_id_           = -1;
+    // Resource-pack option; procedural speech and blinking remain active.
+    bool native_expression_effects_     = false;
     bool is_sleeping_                   = false;
     uint8_t idle_motion_level_          = 2;
 
@@ -38,6 +42,8 @@ private:
     void CreateIdleMotionModifier();
     void UpdateResourceEmotion(const char* emotion);
     void ReadResourceDisplayOptions();
+    // Synchronize optional native decorations without clearing touch/IMU decorations.
+    void UpdateNativeEmotionDecoration(const char* emotion);
 
 protected:
     virtual bool Lock(int timeout_ms = 0) override;
